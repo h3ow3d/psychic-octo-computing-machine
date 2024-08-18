@@ -4,16 +4,27 @@ import pandas as pd
 from transformers import Trainer, TrainingArguments, AutoTokenizer, AutoModelForCausalLM
 from datasets import Dataset
 import torch
+import logging
+
+# Set up logging for debug output
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # Define your model and tokenizer
 model_name = 'gpt2'
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 model = AutoModelForCausalLM.from_pretrained(model_name)
 
 # Check if tokenizer has a pad token, if not, add one
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.add_special_tokens({'pad_token': tokenizer.eos_token})
+
+# Explicitly set the clean_up_tokenization_spaces parameter
+def preprocess_function(examples):
+    inputs = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=512, clean_up_tokenization_spaces=True)
+    inputs['labels'] = inputs['input_ids'].copy()
+    return inputs
 
 # Prepare dataset from JSON files in 'data/' directory
 def load_json_files_from_directory(directory):
@@ -34,11 +45,6 @@ data = {'text': texts}
 df = pd.DataFrame(data)
 df['text'] = df['text'].astype(str)
 dataset = Dataset.from_pandas(df)
-
-def preprocess_function(examples):
-    inputs = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=512)
-    inputs['labels'] = inputs['input_ids'].copy()
-    return inputs
 
 dataset = dataset.map(preprocess_function, batched=True)
 
