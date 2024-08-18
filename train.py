@@ -2,17 +2,12 @@ import os
 import json
 import pandas as pd
 from transformers import Trainer, TrainingArguments, AutoTokenizer, AutoModelForCausalLM
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 import torch
-import logging
-
-# Set up logging for debug output
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 # Define your model and tokenizer
 model_name = 'gpt2'
-tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name)
 
 # Check if tokenizer has a pad token, if not, add one
@@ -38,14 +33,23 @@ texts = load_json_files_from_directory('data/')
 data = {'text': texts}
 df = pd.DataFrame(data)
 df['text'] = df['text'].astype(str)
-dataset = Dataset.from_pandas(df)
+
+# Split the data into training and evaluation datasets
+train_df = df.sample(frac=0.9, random_state=42)  # 90% for training
+eval_df = df.drop(train_df.index)  # Remaining 10% for evaluation
+
+# Convert to datasets
+train_dataset = Dataset.from_pandas(train_df)
+eval_dataset = Dataset.from_pandas(eval_df)
 
 def preprocess_function(examples):
     inputs = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=512)
     inputs['labels'] = inputs['input_ids'].copy()
     return inputs
 
-dataset = dataset.map(preprocess_function, batched=True)
+# Apply preprocessing to both training and evaluation datasets
+train_dataset = train_dataset.map(preprocess_function, batched=True)
+eval_dataset = eval_dataset.map(preprocess_function, batched=True)
 
 # Set up training arguments
 training_args = TrainingArguments(
@@ -71,7 +75,8 @@ model.to(device)
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=dataset,
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset  # Provide the evaluation dataset
 )
 
 # Train the model
