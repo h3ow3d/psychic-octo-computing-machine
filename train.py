@@ -2,8 +2,13 @@ import os
 import json
 import pandas as pd
 from transformers import Trainer, TrainingArguments, AutoTokenizer, AutoModelForCausalLM
-from datasets import Dataset, load_dataset
+from datasets import Dataset
 import torch
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)  # Set the logging level to DEBUG
+logger = logging.getLogger(__name__)
 
 # Define your model and tokenizer
 model_name = 'gpt2'
@@ -60,11 +65,13 @@ training_args = TrainingArguments(
     logging_dir='./logs',
     logging_steps=50,  # Log every 50 steps
     evaluation_strategy="steps",  # Evaluate every 500 steps
+    eval_steps=500,  # Evaluate every 500 steps
     save_strategy="steps",  # Save every 500 steps
     save_steps=500,
-    report_to='tensorboard',  # Optional: use TensorBoard for detailed logs
+    report_to='tensorboard',  # Use TensorBoard for detailed logs
     load_best_model_at_end=True,
     metric_for_best_model='loss',
+    disable_tqdm=False,  # Ensure tqdm is enabled for progress bar
 )
 
 # Detect if GPU is available and use it
@@ -80,8 +87,12 @@ trainer = Trainer(
 )
 
 # Train the model
+logger.info("Starting training...")
 trainer.train()
+logger.info("Training completed.")
 
 # Save the model
+logger.info("Saving the model and tokenizer...")
 model.save_pretrained('./fine-tuned-model')
 tokenizer.save_pretrained('./fine-tuned-model')
+logger.info("Model and tokenizer saved.")
