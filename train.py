@@ -20,12 +20,6 @@ if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.add_special_tokens({'pad_token': tokenizer.eos_token})
 
-# Explicitly set the clean_up_tokenization_spaces parameter
-def preprocess_function(examples):
-    inputs = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=512, clean_up_tokenization_spaces=True)
-    inputs['labels'] = inputs['input_ids'].copy()
-    return inputs
-
 # Prepare dataset from JSON files in 'data/' directory
 def load_json_files_from_directory(directory):
     texts = []
@@ -46,6 +40,11 @@ df = pd.DataFrame(data)
 df['text'] = df['text'].astype(str)
 dataset = Dataset.from_pandas(df)
 
+def preprocess_function(examples):
+    inputs = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=512)
+    inputs['labels'] = inputs['input_ids'].copy()
+    return inputs
+
 dataset = dataset.map(preprocess_function, batched=True)
 
 # Set up training arguments
@@ -56,7 +55,7 @@ training_args = TrainingArguments(
     num_train_epochs=1,
     logging_dir='./logs',
     logging_steps=50,  # Log every 50 steps
-    eval_strategy="steps",  # Evaluate every 500 steps
+    evaluation_strategy="steps",  # Evaluate every 500 steps
     save_strategy="steps",  # Save every 500 steps
     save_steps=500,
     report_to='tensorboard',  # Optional: use TensorBoard for detailed logs
